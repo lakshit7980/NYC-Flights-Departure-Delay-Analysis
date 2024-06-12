@@ -1,0 +1,406 @@
+---
+title: "Project1"
+output: html_document
+date: "2023-10-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(nycflights13)
+UA_flights <- flights %>% 
+  filter(carrier=="UA")
+UA_flights <- UA_flights %>%
+  filter(!is.na(dep_delay))
+glimpse(UA_flights)
+```
+```{r}
+merged1_df <-merge(flights, weather, flights = c("origin", "time_hour","hour"), by.weather = c("origin", "time_hour","hour"), all.x = FALSE, all.y = FALSE, sort = TRUE)
+merged2_df <- merged1_df %>% 
+  filter(carrier=="UA")
+merged_df <- merged2_df %>%
+  filter(!is.na(dep_delay)) %>%
+  select(dep_time,year,month,day,,dep_time,dep_delay,carrier,time_hour,hour,temp,wind_speed,precip,visib)
+glimpse(merged_df)
+
+```
+
+
+
+```{r}
+
+summary(merged_df$hour)
+
+ggplot(data = merged_df, mapping = aes(x = hour)) +
+  geom_histogram(bins = 20, color = "white", fill = "lightblue") +
+  ggtitle("Histogram plot for Time of Day")
+
+ggplot(data = merged_df, mapping = aes(x = hour,y=dep_delay)) +
+  geom_point(color = "lightblue") +
+  labs(title="Plot for Departure delay vs Time of the Day",x="Hour",y="Departure Delay")
+
+```
+
+```{r}
+summary(merged_df$month)
+ggplot(data = merged_df, mapping = aes(x = month)) +
+  geom_histogram() +
+  ggtitle("Histogram plot for Time of Year")
+
+ggplot(data = merged_df, mapping = aes(x = month,y=dep_delay)) +
+  geom_point(color = "lightblue") +
+  labs(title="Plot for Departure delay vs Time of the Year",x="month",y="Departure Delay")
+
+
+```
+```{r}
+summary(merged_df$temp)
+
+ggplot(data = merged_df, mapping = aes(x = temp)) +
+  geom_histogram(bins=40, color="white", fill="#440079") +
+  ggtitle("Histogram plot for Temperature of Year")
+
+ggplot(data = merged_df, mapping = aes(x = temp,y=dep_delay)) +
+  geom_point(color = "lightblue") +
+  labs(title="Plot for Departure delay vs Temperature",x="Temp",y="Departure Delay")
+
+```
+```{r}
+summary(merged_df$wind_speed)
+
+ggplot(data = merged_df, mapping = aes(x = wind_speed)) +
+  geom_histogram(bins=40, color="white", fill="#440079") +
+  ggtitle("Histogram plot for WindSpeed")
+
+ggplot(data = merged_df, mapping = aes(x = wind_speed,y=dep_delay)) +
+  geom_point(color = "lightblue") +
+  labs(title="Plot for Departure delay vs Wind Speed",x="Wind Speed",y="Departure Delay")
+```
+
+```{r}
+Precipitation_delays <- merged_df %>%
+  group_by(precip) %>%
+  summarise(mean_delay3 = mean(dep_delay))
+
+summary(merged_df$precip)
+ggplot(Precipitation_delays, aes(x = precip, y = mean_delay3)) +
+  geom_point() +
+  ggtitle("Average Departure Delay by Precipitation")
+ggplot(data = merged_df, mapping = aes(x = precip)) +
+  geom_histogram(bins=40, color="white", fill="#440079") +
+  ggtitle("Histogram plot for Precipitation")
+
+ggplot(data = merged_df, mapping = aes(x = precip,y=dep_delay)) +
+  geom_point(color = "lightblue") +
+  labs(title="Plot for Departure delay vs precip",x="Precip",y="Departure Delay")
+
+```
+```{r}
+Visibility_delays <- merged_df %>%
+  group_by(visib) %>%
+  summarise(mean_delay3 = mean(dep_delay))
+summary(merged_df$visib)
+ggplot(Visibility_delays, aes(x = visib, y = mean_delay3)) +
+  geom_point() +
+  ggtitle("Average Departure Delay by Visibility")
+
+ggplot(data = merged_df, mapping = aes(x = visib)) +
+  geom_histogram(bins=40, color="white", fill="#440079") +
+  ggtitle("Histogram plot for Visibility")
+
+ggplot(data = merged_df, mapping = aes(x = visib,y=dep_delay)) +
+  geom_point(color = "lightblue") +
+  labs(title="Plot for Departure delay vs Visibility",x="Visibility",y="Departure Delay")
+
+```
+
+### Permutation Tests:
+#### Average departure delay by time of the day
+
+```{r}
+merged_df <- merged_df %>%
+  mutate(time_of_day = case_when(
+    between(hour, 5, 11) ~ 1,
+    between(hour, 12, 17) ~ 2,
+    TRUE ~ 3))
+
+N<- 10^4-1
+observed <- mean(merged_df$dep_delay[merged_df$time_of_day == 2], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$time_of_day == 1], na.rm = TRUE)
+result <- numeric(N)
+for (i in 1:N)
+{
+  index <- sample(nrow(merged_df), size=nrow(merged_df %>% filter(time_of_day == 1)), replace = FALSE)
+  result[i] <- mean(merged_df$dep_delay[index], na.rm = TRUE) - mean(merged_df$dep_delay[-index], na.rm = TRUE)
+}
+ggplot(data = tibble(result), mapping = aes(x = result)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observed, color = "red")
+2 * ((sum(result >= observed) + 1) / (N + 1))
+```
+```{r}
+N<- 10^4-1
+observed1 <- mean(merged_df$dep_delay[merged_df$time_of_day == 3], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$time_of_day == 2], na.rm = TRUE)
+result1 <- numeric(N)
+for (i in 1:N)
+{
+  index1 <- sample(nrow(merged_df), size=nrow(merged_df %>% filter(time_of_day == 2)), replace = FALSE)
+  result1[i] <- mean(merged_df$dep_delay[index1], na.rm = TRUE) - mean(merged_df$dep_delay[-index1], na.rm = TRUE)
+}
+ggplot(data = tibble(result1), mapping = aes(x = result1)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observed1, color = "red")
+2 * ((sum(result1 >= observed1) + 1) / (N + 1))
+```
+```{r}
+N<- 10^4-1
+observed2 <- mean(merged_df$dep_delay[merged_df$time_of_day == 3], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$time_of_day == 1], na.rm = TRUE)
+result2 <- numeric(N)
+for (i in 1:N)
+{
+  index2 <- sample(nrow(merged_df), size=nrow(merged_df %>% filter(time_of_day == 1)), replace = FALSE)
+  result2[i] <- mean(merged_df$dep_delay[index2], na.rm = TRUE) - mean(merged_df$dep_delay[-index2], na.rm = TRUE)
+}
+ggplot(data = tibble(result2), mapping = aes(x = result2)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observed2, color = "red")
+2 * ((sum(result2 >= observed2) + 1) / (N + 1))
+```
+
+#### Average Departure Delay by Month of Year
+
+```{r}
+merged_df <- merged_df %>%
+  mutate(Seasons = case_when(
+  between(merged_df$month, 1, 2) ~ "Winter",
+  between(merged_df$month, 3, 5) ~ "Spring",
+  between(merged_df$month, 6, 8) ~ "Summer",
+  between(merged_df$month, 8, 12) ~ "Autumn",
+  TRUE ~ "NA"))
+
+
+```
+```{r}
+N<- 10^5-1
+observedNew <- mean(merged_df$dep_delay[merged_df$Seasons == 'Spring'], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$Seasons == 'Winter'], na.rm = TRUE)
+resultNew1 <- numeric(N)
+sample.size= length(merged_df$Seasons)
+group.1.size = nrow(tibble(merged_df$dep_delay[merged_df$Seasons == "Winter"]))
+for (i in 1:N)
+{
+  indexNew <- sample(sample.size, size= group.1.size, replace = FALSE)
+  resultNew1[i] <- mean(merged_df$dep_delay[indexNew], na.rm = TRUE) - mean(merged_df$dep_delay[-indexNew], na.rm = TRUE)
+}
+ggplot(data = tibble(resultNew1), mapping = aes(x = resultNew1)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observedNew, color = "red")
+2 * ((sum(resultNew1 >= observedNew) + 1) / (N + 1))
+```
+```{r}
+N<- 10^5-1
+observedNew1 <- mean(merged_df$dep_delay[merged_df$Seasons == 'Summer'], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$Seasons == 'Winter'], na.rm = TRUE)
+resultNew2 <- numeric(N)
+sample.size= length(merged_df$Seasons)
+group.1.size = nrow(tibble(merged_df$dep_delay[merged_df$Seasons == "Winter"]))
+for (i in 1:N)
+{
+  indexNew1 <- sample(sample.size, size= group.1.size, replace = FALSE)
+  resultNew2[i] <- mean(merged_df$dep_delay[indexNew1], na.rm = TRUE) - mean(merged_df$dep_delay[-indexNew1], na.rm = TRUE)
+}
+ggplot(data = tibble(resultNew2), mapping = aes(x = resultNew2)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observedNew1, color = "red")
+2 * ((sum(resultNew2 >= observedNew1) + 1) / (N + 1))
+```
+```{r}
+N<- 10^5-1
+observedNew2 <- mean(merged_df$dep_delay[merged_df$Seasons == 'Autumn'], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$Seasons == 'Winter'], na.rm = TRUE)
+resultNew3 <- numeric(N)
+sample.size= length(merged_df$Seasons)
+group.1.size = nrow(tibble(merged_df$dep_delay[merged_df$Seasons == "Winter"]))
+for (i in 1:N)
+{
+  indexNew2 <- sample(sample.size, size= group.1.size, replace = FALSE)
+  resultNew3[i] <- mean(merged_df$dep_delay[indexNew2], na.rm = TRUE) - mean(merged_df$dep_delay[-indexNew2], na.rm = TRUE)
+}
+ggplot(data = tibble(resultNew3), mapping = aes(x = resultNew3)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observedNew2, color = "red")
+2 * ((sum(resultNew3 >= observedNew2) + 1) / (N + 1))
+```
+```{r}
+N<- 10^5-1
+observedNew3 <- mean(merged_df$dep_delay[merged_df$Seasons == 'Summer'], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$Seasons == 'Spring'], na.rm = TRUE)
+resultNew4 <- numeric(N)
+sample.size= length(merged_df$Seasons)
+group.1.size = nrow(tibble(merged_df$dep_delay[merged_df$Seasons == "Spring"]))
+for (i in 1:N)
+{
+  indexNew3 <- sample(sample.size, size= group.1.size, replace = FALSE)
+  resultNew4[i] <- mean(merged_df$dep_delay[indexNew3], na.rm = TRUE) - mean(merged_df$dep_delay[-indexNew3], na.rm = TRUE)
+}
+ggplot(data = tibble(resultNew4), mapping = aes(x = resultNew4)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observedNew3, color = "red")
+2 * ((sum(resultNew4 >= observedNew3) + 1) / (N + 1))
+```
+```{r}
+N<- 10^5-1
+observedNew4 <- mean(merged_df$dep_delay[merged_df$Seasons == 'Spring'], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$Seasons == 'Autumn'], na.rm = TRUE)
+resultNew5 <- numeric(N)
+sample.size= length(merged_df$Seasons)
+group.1.size = nrow(tibble(merged_df$dep_delay[merged_df$Seasons == "Spring"]))
+for (i in 1:N)
+{
+  indexNew4 <- sample(sample.size, size= group.1.size, replace = FALSE)
+  resultNew5[i] <- mean(merged_df$dep_delay[indexNew4], na.rm = TRUE) - mean(merged_df$dep_delay[-indexNew4], na.rm = TRUE)
+}
+ggplot(data = tibble(resultNew5), mapping = aes(x = resultNew5)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observedNew4, color = "red")
+2 * ((sum(resultNew5 >= observedNew4) + 1) / (N + 1))
+```
+```{r}
+N<- 10^5-1
+observedNew5 <- mean(merged_df$dep_delay[merged_df$Seasons == 'Summer'], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$Seasons == 'Autumn'], na.rm = TRUE)
+resultNew6 <- numeric(N)
+sample.size= length(merged_df$Seasons)
+group.1.size = nrow(tibble(merged_df$dep_delay[merged_df$Seasons == "Summer"]))
+for (i in 1:N)
+{
+  indexNew5 <- sample(sample.size, size= group.1.size, replace = FALSE)
+  resultNew6[i] <- mean(merged_df$dep_delay[indexNew5], na.rm = TRUE) - mean(merged_df$dep_delay[-indexNew5], na.rm = TRUE)
+}
+ggplot(data = tibble(resultNew6), mapping = aes(x = resultNew6)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observedNew5, color = "red")
+2 * ((sum(resultNew6 >= observedNew5) + 1) / (N + 1))
+```
+
+
+
+
+
+
+#### Average Departure Delay by Temperature of Year
+
+```{r}
+mean_temp <- merged_df %>%
+  filter(!is.na(temp)) %>%
+  summarise(mean_temp = mean(temp))
+
+
+merged_df <- merged_df %>%
+  mutate(tempNew = case_when(
+  between(temp, 0 , 57.57919) ~ 0,
+  TRUE ~ 1))
+
+
+
+```
+
+```{r}
+N<- 10^4-1
+observed3 <- mean(merged_df$dep_delay[merged_df$tempNew == 1], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$tempNew == 0], na.rm = TRUE)
+result3 <- numeric(N)
+for (i in 1:N)
+{
+  index3 <- sample(nrow(merged_df), size=nrow(merged_df %>% filter(tempNew == 1)), replace = FALSE)
+  result3[i] <- mean(merged_df$dep_delay[index3], na.rm = TRUE) - mean(merged_df$dep_delay[-index3], na.rm = TRUE)
+}
+ggplot(data = tibble(result3), mapping = aes(x = result3)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observed3, color = "red")
+2 * ((sum(result3 >= observed3) + 1) / (N + 1))
+```
+
+#### Average Departure Delay by WindSpeed
+
+```{r}
+mean_windSpeed <- merged_df %>%
+  filter(!is.na(wind_speed)) %>%
+  summarise(mean_windSpeed = mean(wind_speed))
+
+
+merged_df <- merged_df %>%
+  mutate(WindNew = case_when(
+  between(wind_speed, 0 , 10.02621) ~ 0,
+  TRUE ~ 1))
+glimpse(merged_df)
+```
+```{r}
+N<- 10^4-1
+observed4 <- mean(merged_df$dep_delay[merged_df$WindNew == 1], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$WindNew == 0], na.rm = TRUE)
+result4 <- numeric(N)
+for (i in 1:N)
+{
+  index4 <- sample(nrow(merged_df), size=nrow(merged_df %>% filter(WindNew == 1)), replace = FALSE)
+  result4[i] <- mean(merged_df$dep_delay[index4], na.rm = TRUE) - mean(merged_df$dep_delay[-index4], na.rm = TRUE)
+}
+ggplot(data = tibble(result4), mapping = aes(x = result4)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observed4, color = "red")
+2 * ((sum(result4 >= observed4) + 1) / (N + 1))
+```
+
+#### Average Departure Delay by Precipitation
+
+```{r}
+mean_Precip <- merged_df %>%
+  filter(!is.na(precip)) %>%
+  summarise(mean_Precip = mean(precip))
+
+
+merged_df <- merged_df %>%
+  mutate(PrecipNew = case_when(
+  between(precip, 0 , 0.005401256) ~ 0,
+  TRUE ~ 1))
+glimpse(merged_df)
+```
+```{r}
+N<- 10^4-1
+observed5 <- mean(merged_df$dep_delay[merged_df$PrecipNew == 1], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$PrecipNew == 0], na.rm = TRUE)
+result5 <- numeric(N)
+for (i in 1:N)
+{
+  index5 <- sample(nrow(merged_df), size=nrow(merged_df %>% filter(PrecipNew == 1)), replace = FALSE)
+  result5[i] <- mean(merged_df$dep_delay[index5], na.rm = TRUE) - mean(merged_df$dep_delay[-index5], na.rm = TRUE)
+}
+ggplot(data = tibble(result5), mapping = aes(x = result5)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observed5, color = "red")
+2 * ((sum(result5 >= observed5) + 1) / (N + 1))
+```
+#### Average Departure Delay by Visibility
+
+```{r}
+mean_Visib <- merged_df %>%
+  filter(!is.na(visib)) %>%
+  summarise(mean_Visib = mean(visib))
+
+
+merged_df <- merged_df %>%
+  mutate(VisibNew = case_when(
+  between(visib, 0 , 9.265365	) ~ 0,
+  TRUE ~ 1))
+glimpse(merged_df)
+```
+
+```{r}
+N<- 10^4-1
+observed6 <- mean(merged_df$dep_delay[merged_df$VisibNew == 0], na.rm = TRUE)-mean(merged_df$dep_delay[merged_df$VisibNew == 1], na.rm = TRUE)
+result6 <- numeric(N)
+for (i in 1:N)
+{
+  index6 <- sample(nrow(merged_df), size=nrow(merged_df %>% filter(VisibNew == 1)), replace = FALSE)
+  result6[i] <- mean(merged_df$dep_delay[index6], na.rm = TRUE) - mean(merged_df$dep_delay[-index6], na.rm = TRUE)
+}
+ggplot(data = tibble(result6), mapping = aes(x = result6)) + 
+  geom_histogram() +
+  geom_vline(xintercept = observed6, color = "red")
+2 * ((sum(result6 >= observed6) + 1) / (N + 1))
+```
+
